@@ -1,5 +1,62 @@
 "use strict";
 
+//// observer function to detect changes in DOM on specified selectors
+(function (selectors) {
+
+    let listeners = [];
+    let doc = selectors.document;
+    let MutationObserver = selectors.MutationObserver || selectors.WebKitMutationObserver, observer, loadedNodes;
+
+    function observe(selector, loadedNodesList, fn) {
+
+        loadedNodes = loadedNodesList ? Array.from(loadedNodesList) : [];
+        
+        listeners.push({
+            selector: selector,
+            fn: fn
+        });
+
+        // watch for changes
+        if (!observer) {            
+            observer = new MutationObserver(checkElement);
+            observer.observe(doc.documentElement, {
+                childList: true,
+                subtree: true
+            });
+        }
+
+        // check if the element is in the DOM
+        checkElement();
+    }
+
+    function checkElement() {        
+
+        // check for elements matching a selector
+        for (let i = 0, len = listeners.length, listener, elements; i < len; i++) {
+            listener = listeners[i];
+            
+            elements = doc.querySelectorAll(listener.selector);
+            
+            for (let j = 0, jLen = elements.length, element; j < jLen; j++) {
+                element = elements[j];                         
+
+                // skip already created nodes on a first page load
+                if (loadedNodes.find(node => node == element)) continue;
+                
+                if (!element.observe) {
+                    element.observe = true;                    
+                    listener.fn.call(element, element);
+                }
+            }
+        }
+    }
+
+    selectors.observe = observe;
+
+})(this);
+
+
+//// Engine Core
 !(function () {    
 
     //#region # vars
@@ -16,17 +73,25 @@
     const selectors = {
         headerTag: "h1,h2,h3,h4,h5,h6",
         linkTag: "a",
-        landmarkTag: "banner,complementary,contentinfo,form,main,navigation,search"
+        landmarkTag: "banner,complementary,contentinfo,form,main,navigation,search,footer"
     };  
+
+    const selectorsAll = Object.values(selectors).join();
 
     //#endregion
 
-    //#region # event handlers
-
+    //#region # event handlers    
     window.addEventListener("load", () => {
+
         createHighlighterClass();
-        getAccessmentElements();
-    });    
+
+        elementsNodeList = document.querySelectorAll(selectorsAll);
+
+        observe(selectorsAll, [...elementsNodeList], function (el) {            
+            console.log('new element have been added');
+            elementsNodeList = document.querySelectorAll(selectorsAll);
+        });
+    });
 
     document.addEventListener('keydown', (e) => {
 
@@ -38,14 +103,7 @@
 
         if (ifActiveElementIsInput()) return;
 
-        switch (e.code) {            
-            case "KeyT":
-                //// undocumented feature - move on top of the page and reset index and direction
-                resetSelectedElement();
-                currentIndex = -1;
-                moveNextDirection = true;                
-                window.scrollTo(0, 0);
-                break;
+        switch (e.code) {                        
             case "KeyH":                
                 next(headerTag);
                 break;
@@ -65,12 +123,20 @@
                 e.preventDefault();
                 e.stopPropagation();
                 break;
-            ////case "KeyN":
-            ////    let h = document.createElement("H1");
-            ////    let t = document.createTextNode("This is a test !!!!!!!!!");
-            ////    h.appendChild(t);
-            ////    document.body.appendChild(h);
-            ////    break;
+            case "KeyT":
+                //// undocumented feature - move on top of the page and reset index and direction
+                resetSelectedElement();
+                currentIndex = -1;
+                moveNextDirection = true;
+                window.scrollTo(0, 0);
+                break;
+            case "KeyF":
+                //// undocumented feature - adding h1 tag for test cases
+                let h = document.createElement("h1");
+                let t = document.createTextNode("Hello, World");
+                h.appendChild(t);
+                document.body.appendChild(h);
+                break;
         }
     });
 
@@ -82,7 +148,7 @@
         resetSelectedElement();
         currentIndex = getNextIndex(currentIndex, tag);        
 
-        if (currentIndex != -1 && elementsNodeList[currentIndex]) {
+        if (currentIndex != -1 && currentIndex != elementsNodeList.length && elementsNodeList[currentIndex]) {
             setElement(elementsNodeList[currentIndex]);
         } 
     }
@@ -129,12 +195,7 @@
 
     function resetFocus() {
         if (ifActiveElementIsInput()) document.activeElement.blur();
-    }
-
-    function getAccessmentElements() {
-        const selectorsAll = Object.values(selectors).join();
-        elementsNodeList = document.querySelectorAll(selectorsAll);        
-    }
+    }    
  
     function createHighlighterClass(){
       let style = document.createElement('style');
@@ -168,6 +229,5 @@
         window.scrollTo(0, top);
     }
 
-    //#endregion
-   
+    //#endregion  
 })();
