@@ -7,7 +7,7 @@
     let elementsNodeList = [];
 
     let currentIndex = -1;    
-    let deltaArrowIndex = 0;
+    let moveNextDirection = true; // if false then move to previous (up)
 
     const headerTag = "header";
     const linkTag = "link";
@@ -29,21 +29,41 @@
     });    
 
     document.addEventListener('keydown', (e) => {
-        switch (e.code) {
-            case "KeyH":
+
+        //// undocumented feature - reset focus from input
+        if (e.code == "Escape") {
+            resetFocus();
+            return;
+        }
+
+        if (ifActiveElementIsInput()) return;
+
+        switch (e.code) {            
+            case "KeyT":
+                //// undocumented feature - move on top of the page and reset index and direction
+                resetSelectedElement();
+                currentIndex = -1;
+                moveNextDirection = true;                
+                window.scrollTo(0, 0);
+                break;
+            case "KeyH":                
                 next(headerTag);
                 break;
-            case "KeyL":
+            case "KeyL":                
                 next(linkTag);                
                 break;
-            case "KeyM":
+            case "KeyM":                
                 next(landmarkTag);
                 break;
-            case "ArrowUp":
-                deltaArrowIndex++;
+            case "ArrowUp":              
+                moveNextDirection = false;
+                e.preventDefault();
+                e.stopPropagation();
                 break;
-            case "ArrowDown":
-                deltaArrowIndex--;
+            case "ArrowDown":              
+                moveNextDirection = true;                
+                e.preventDefault();
+                e.stopPropagation();
                 break;
             ////case "KeyN":
             ////    let h = document.createElement("H1");
@@ -55,14 +75,12 @@
     });
 
     //#endregion
+
+    //#region # moving engine
   
     function next(tag) {
-
-        if (currentIndex != -1) {
-            resetElement(elementsNodeList[currentIndex]);
-        }
-
-        currentIndex = getNextIndex(currentIndex, tag);
+        resetSelectedElement();
+        currentIndex = getNextIndex(currentIndex, tag);        
 
         if (currentIndex != -1 && elementsNodeList[currentIndex]) {
             setElement(elementsNodeList[currentIndex]);
@@ -71,25 +89,47 @@
 
     function getNextIndex(startIndex, tag) {
         if (elementsNodeList.length == 0) return startIndex;
+        
+        //// next
+        if (moveNextDirection) {
 
-        if (startIndex >= elementsNodeList.length - 1) startIndex = -1;
+            if (startIndex >= elementsNodeList.length - 1) startIndex = -1;
 
-        for (let i = startIndex + 1; i < elementsNodeList.length; i++) {
-            if (getElementType(elementsNodeList[i]) == tag) return i;            
+            for (let i = startIndex + 1; i < elementsNodeList.length; i++) {
+                if (getElementType(elementsNodeList[i]) == tag) return i;                    
+            }
+
+        }
+        else { //// prev
+
+            if (startIndex == -1) startIndex = elementsNodeList.length;
+
+            for (let i = startIndex - 1; i >= 0; i--) {
+                if (getElementType(elementsNodeList[i]) == tag) return i;                    
+            }
+
         }
 
         return -1;
     }
 
-    function previous() {
-    }    
-
-
+    //#endregion
+    
     //#region # helpers
 
     Element.prototype.documentOffsetTop = function () {
         return this.offsetTop + (this.offsetParent ? this.offsetParent.documentOffsetTop() : 0);
     };
+
+    function ifActiveElementIsInput() {
+        const inputs = ['input', 'select', 'textarea'];
+        const activeElement = document.activeElement;        
+        return activeElement && inputs.indexOf(activeElement.tagName.toLowerCase()) !== -1;
+    }
+
+    function resetFocus() {
+        if (ifActiveElementIsInput()) document.activeElement.blur();
+    }
 
     function getAccessmentElements() {
         const selectorsAll = Object.values(selectors).join();
@@ -116,8 +156,11 @@
         return landmarkTag;
     }
 
-    function resetElement(element) {
-        element.classList.remove('assess-highlighter');        
+    function resetSelectedElement() {
+        if (currentIndex != -1 && elementsNodeList[currentIndex]) {
+            elementsNodeList[currentIndex].classList.remove('assess-highlighter');                    
+        }
+        
     }
 
     function scrollToElement(element) {
